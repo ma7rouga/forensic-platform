@@ -1,0 +1,6 @@
+streamlit>=1.32
+fpdf2>=2.7
+# Optional, for going live on real tools — install as you wire each in:
+# python-nmap
+# volatility3
+# regipy
