@@ -4,7 +4,7 @@
 Le squelette fonctionnel de bout en bout du pipeline :
 `netscan → extraction → injection → ghidra → mitre_attack → rapport`
 
-Chaque étape est un module Python indépendant. Si l'outil réel (nmap,
+Chaque étape est un module Python indépendant. Si l'outilréel (nmap,
 Volatility3, Ghidra) n'est pas installé ou qu'aucune image/binaire n'est
 fourni, le module retombe automatiquement sur des données d'exemple
 réalistes — **le pipeline complet tourne et produit un rapport quel que
