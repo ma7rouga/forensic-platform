@@ -10,7 +10,7 @@ fourni, le module retombe automatiquement sur des données d'exemple
 réalistes — **le pipeline complet tourne et produit un rapport quel que
 soit l'environnement de démo.**
 
-## Installation (ce soir)
+## Installation 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
