@@ -11,6 +11,8 @@ import os
 from modules.netscan import run_netscan
 from modules.extraction import run_extraction
 from modules.injection import run_injection_scan
+from modules.injection import run_injection_scan
+from modules.malware import run_malware_analysis
 from modules.ghidra_analysis import run_ghidra_analysis
 from modules.mitre_mapping import map_to_attack
 from modules.report import build_markdown_report, save_markdown, save_pdf
@@ -35,8 +37,8 @@ st.sidebar.info(
     "bout quel que soit l'environnement."
 )
 
-stages = ["1. Netscan", "2. Extraction", "3. Injection", "4. Ghidra",
-          "5. MITRE ATT&CK", "6. Rapport"]
+stages = ["1. Netscan", "2. Extraction", "3. Injection", "4. Malware Detection", "5. Ghidra",
+          "6. MITRE ATT&CK", "7. Rapport"]
 tabs = st.tabs(stages)
 
 # ---- Stage 1: Netscan ----
@@ -66,8 +68,22 @@ with tabs[2]:
     if "injection" in st.session_state.results:
         st.json(st.session_state.results["injection"])
 
-# ---- Stage 4: Ghidra ----
+# ---- Stage 4: Malware Detection ----
 with tabs[3]:
+    st.subheader("Analyse malware — scoring + IA")
+    if st.button("Lancer le scoring malware"):
+        with st.spinner("Analyse en cours..."):
+            st.session_state.results["malware"] = run_malware_analysis(binary_path or None)
+    if "malware" in st.session_state.results:
+        result = st.session_state.results["malware"]
+        st.json(result)
+        if result.get("mlAvailable"):
+            st.success(f"Modèle EMBER actif — probabilité malveillante : {result['ml']['maliciousProbability']}")
+        else:
+            st.info("Modèle EMBER non chargé (EMBER_MODEL_PATH non défini) — score heuristique utilisé seul.")
+
+# ---- Stage 5: Ghidra ----
+with tabs[4]:
     st.subheader("Analyse Ghidra")
     if st.button("Lancer l'analyse Ghidra"):
         with st.spinner("Décompilation en cours..."):
@@ -75,8 +91,8 @@ with tabs[3]:
     if "ghidra" in st.session_state.results:
         st.json(st.session_state.results["ghidra"])
 
-# ---- Stage 5: MITRE ----
-with tabs[4]:
+# ---- Stage 6: MITRE ----
+with tabs[5]:
     st.subheader("Cartographie MITRE ATT&CK")
     if st.button("Générer la cartographie ATT&CK"):
         blob = json.dumps(st.session_state.results, default=str)
@@ -86,8 +102,8 @@ with tabs[4]:
             st.markdown(f"**{tech['technique_id']} — {tech['technique_name']}**  \n"
                         f"Tactique : {tech['tactic']}")
 
-# ---- Stage 6: Rapport ----
-with tabs[5]:
+# ---- Stage 7: Rapport ----
+with tabs[6]:
     st.subheader("Rapport final")
     if st.button("Générer le rapport"):
         md = build_markdown_report(st.session_state.results)
