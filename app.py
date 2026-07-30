@@ -1,9 +1,4 @@
-"""
-Plateforme Forensique d'Investigation basée sur l'IA
-Core pipeline orchestrator: netscan > extraction > injection > ghidra > mitre > rapport
-
-Run with:  streamlit run app.py
-"""
+from theme import inject_theme
 import streamlit as st
 import json
 import os
@@ -18,7 +13,7 @@ from modules.mitre_mapping import map_to_attack
 from modules.report import build_markdown_report, save_markdown, save_pdf
 
 st.set_page_config(page_title="Forensic AI Platform", layout="wide")
-
+inject_theme()
 if "results" not in st.session_state:
     st.session_state.results = {}
 
