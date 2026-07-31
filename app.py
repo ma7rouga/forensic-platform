@@ -2,7 +2,8 @@ from theme import inject_theme
 import streamlit as st
 import json
 import os
-
+from modules.memmal_score import score_memory_features
+from modules.network_score import score_network_flow
 from modules.netscan import run_netscan
 from modules.extraction import run_extraction
 from modules.injection import run_injection_scan
@@ -17,8 +18,8 @@ inject_theme()
 if "results" not in st.session_state:
     st.session_state.results = {}
 
-st.title("🔍 Plateforme Forensique d'Investigation — Core Pipeline")
-st.caption("netscan → extraction → injection → ghidra → mitre_attack → rapport")
+st.title("foren")
+st.caption("platforme dinvestigation")
 
 st.sidebar.header("Configuration de la cible")
 target_ip = st.sidebar.text_input("IP cible (netscan)", "127.0.0.1")
@@ -44,7 +45,13 @@ with tabs[0]:
             st.session_state.results["netscan"] = run_netscan(target_ip)
     if "netscan" in st.session_state.results:
         st.json(st.session_state.results["netscan"])
-
+    st.markdown("---")
+    st.subheader("Score IA — CICIDS2017 (flux réseau)")
+    if st.button("Lancer le scoring réseau IA"):
+        with st.spinner("Analyse en cours..."):
+            st.session_state.results["network_ai"] = score_network_flow()
+    if "network_ai" in st.session_state.results:
+        st.json(st.session_state.results["network_ai"])
 # ---- Stage 2: Extraction ----
 with tabs[1]:
     st.subheader("Extraction mémoire")
@@ -77,6 +84,13 @@ with tabs[3]:
         else:
             st.info("Modèle EMBER non chargé (EMBER_MODEL_PATH non défini) — score heuristique utilisé seul.")
 
+    st.markdown("---")
+    st.subheader("Score IA — MemMal-D2024 (features mémoire)")
+    if st.button("Lancer le scoring MemMal"):
+        with st.spinner("Analyse en cours..."):
+            st.session_state.results["memmal"] = score_memory_features()
+    if "memmal" in st.session_state.results:
+        st.json(st.session_state.results["memmal"])
 # ---- Stage 5: Ghidra ----
 with tabs[4]:
     st.subheader("Analyse Ghidra")
