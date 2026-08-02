@@ -12,7 +12,9 @@ from modules.malware import run_malware_analysis
 from modules.ghidra_analysis import run_ghidra_analysis
 from modules.mitre_mapping import map_to_attack
 from modules.report import build_markdown_report, save_markdown, save_pdf
-
+from modules.volatility_parser import load_pstree, load_netscan, summarize_pstree, load_malfind
+from modules.ai_analysis import generate_report_analysis
+from modules.registry import load_registry_summary
 st.set_page_config(page_title="Forensic AI Platform", layout="wide")
 inject_theme()
 if "results" not in st.session_state:
@@ -34,7 +36,7 @@ st.sidebar.info(
 )
 
 stages = ["1. Netscan", "2. Extraction", "3. Injection", "4. Malware Detection", "5. Ghidra",
-          "6. MITRE ATT&CK", "7. Rapport"]
+          "6. MITRE ATT&CK", "7. Registre", "8. Rapport"]
 tabs = st.tabs(stages)
 
 # ---- Stage 1: Netscan ----
@@ -52,6 +54,15 @@ with tabs[0]:
             st.session_state.results["network_ai"] = score_network_flow()
     if "network_ai" in st.session_state.results:
         st.json(st.session_state.results["network_ai"])
+    st.markdown("---")
+    st.subheader("capture Volatility")
+    real_procs = load_pstree("pstree.json")
+    real_conns = load_netscan("netscan.json")
+    if real_procs:
+        st.success(f"{len(real_procs)} processus réels chargés depuis pstree.json")
+        st.json(summarize_pstree(real_procs))
+    if not real_conns:
+        st.info("netscan.json: aucune connexion active au moment de la capture.")
 # ---- Stage 2: Extraction ----
 with tabs[1]:
     st.subheader("Extraction mémoire")
@@ -69,6 +80,16 @@ with tabs[2]:
             st.session_state.results["injection"] = run_injection_scan(memory_image or None)
     if "injection" in st.session_state.results:
         st.json(st.session_state.results["injection"])
+
+    st.markdown("---")
+    st.subheader("Résultats réels — Volatility3 malfind")
+    real_malfind = load_malfind("malfind.json")
+    if real_malfind:
+        st.success(f"{len(real_malfind)} zone(s) suspecte(s) détectée(s) (malfind réel)")
+        st.session_state.results["malfind_real"] = real_malfind
+        st.json(real_malfind[:10])
+    else:
+        st.info("malfind.json: aucune donnée réelle trouvée.")
 
 # ---- Stage 4: Malware Detection ----
 with tabs[3]:
@@ -110,19 +131,34 @@ with tabs[5]:
         for tech in st.session_state.results["mitre"]:
             st.markdown(f"**{tech['technique_id']} — {tech['technique_name']}**  \n"
                         f"Tactique : {tech['tactic']}")
-
-# ---- Stage 7: Rapport ----
+# ---- Stage 7: Registre ----
 with tabs[6]:
+    st.subheader("Analyse du registre")
+    hive_path = st.text_input("Chemin vers une ruche exportée (optionnel)", "")
+    if st.button("Charger le registre"):
+        with st.spinner("Lecture en cours..."):
+            st.session_state.results["registry"] = load_registry_summary(hive_path or None)
+    if "registry" in st.session_state.results:
+        st.json(st.session_state.results["registry"])
+# ---- Stage 8: Rapport ----
+with tabs[7]:
     st.subheader("Rapport final")
+
+    if st.button("Générer l'analyse IA"):
+        with st.spinner("L'IA rédige l'analyse..."):
+            context = {
+                "pstree_summary": summarize_pstree(load_pstree("pstree.json")),
+                "malfind": load_malfind("malfind.json"),
+                "netscan": load_netscan("netscan.json"),
+                "malware_verdict": st.session_state.results.get("memmal", {}),
+                "network_verdict": st.session_state.results.get("network_ai", {}),
+                "mitre_mapping": st.session_state.results.get("mitre", []),
+            }
+            st.session_state.results["ai_analysis"] = generate_report_analysis(context)
+    if "ai_analysis" in st.session_state.results:
+        st.markdown("**Analyse générée par l'IA :**")
+        st.write(st.session_state.results["ai_analysis"])
+
     if st.button("Générer le rapport"):
         md = build_markdown_report(st.session_state.results)
-        os.makedirs("output", exist_ok=True)
-        md_path = save_markdown(md, "output/rapport.md")
-        pdf_path = save_pdf(md, "output/rapport.pdf")
-        st.session_state.results["report_md"] = md
-        st.success(f"Rapport généré : {md_path}" + (f" et {pdf_path}" if pdf_path else ""))
-    if "report_md" in st.session_state.results:
-        st.markdown(st.session_state.results["report_md"])
-        st.download_button("Télécharger le rapport (Markdown)",
-                            st.session_state.results["report_md"],
-                            file_name="rapport.md")
+        ...
