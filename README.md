@@ -1,45 +1,56 @@
-# Plateforme Forensique d'Investigation basée sur l'IA — Core Pipeline
+# REN 人 — AI-Assisted Forensic Investigation Platform
 
-## Ce que c'est
-Le squelette fonctionnel de bout en bout du pipeline :
-`netscan → extraction → injection → ghidra → mitre_attack → rapport`
+## What this is
 
-Chaque étape est un module Python indépendant. Si l'outilréel (nmap,
-Volatility3, Ghidra) n'est pas installé ou qu'aucune image/binaire n'est
-fourni, le module retombe automatiquement sur des données d'exemple
-réalistes — **le pipeline complet tourne et produit un rapport quel que
-soit l'environnement de démo.**
+An end-to-end forensic investigation pipeline: `netscan → extraction →
+injection → malware triage → ghidra → mitre_attack → registry → AI analysis → report`
 
-## Installation 
-```bash
+Each stage is an independent Python module. If the real tool (Volatility3,
+Ghidra, a target binary, a registry hive) isn't available or no input is
+provided, the module automatically falls back to realistic sample data —
+**the full pipeline always runs and produces a report, regardless of the
+demo environment.**
+
+The UI marks every result as either a live result or sample data, so this
+is never ambiguous to whoever is reviewing it.
+
+## Installation
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 streamlit run app.py
-```
+Optional environment variables:
+- `ANTHROPIC_API_KEY` — enables the live LLM analysis stage. Without it, the
+  report falls back to placeholder analysis text.
+- `EMBER_MODEL_PATH` — not currently used (EMBER integration removed; malware
+  triage uses heuristic scoring only).
 
-## L'architecture
-- **Orchestrateur** : `app.py` (Streamlit) — chaîne les 6 étapes, garde
-  l'état en session, déclenche la génération du rapport.
-- **Modules indépendants** : chaque étape est isolée dans
-  `modules/<stage>.py` avec une fonction d'entrée claire — ça veut dire
-  que remplacer les données d'exemple par le vrai outil ne touche QUE ce
-  fichier, jamais le reste du pipeline. C'est le point à vendre : le
-  cœur architectural est stable, l'intégration des outils est un travail
-  incrémental derrière une interface déjà fixée.
-- **Design résilient** : chaque module essaie l'outil réel en premier
-  (subprocess), et retombe sur des données d'exemple sinon — donc le
-  pipeline ne casse jamais en démo.
+## Architecture
 
-## Ce qui reste à faire (prochaine sprint)
-| Étape | Aujourd'hui | Prochaine étape |
-|---|---|---|
-| Netscan | scan socket pur Python (fonctionne partout) | brancher `python-nmap` pour scan de service/version complet |
-| Extraction | données d'exemple | tester avec une vraie image mémoire (.raw/.vmem) + Volatility3 installé |
-| Injection | données d'exemple (malfind simulé) | brancher le plugin réel `windows.malfind` de Volatility3 |
-| Ghidra | snippet décompilé d'exemple | installer Ghidra, définir `GHIDRA_HOME`, tester `analyzeHeadless` sur un vrai binaire |
-| Registre | non branché encore | ajouter `modules/registry.py` avec la lib `regipy` pour parser une ruche réelle |
-| Autopsy | non branché encore | soit lancer Autopsy en parallèle sur le disque image, soit importer son export TSK/bodyfile |
-| MITRE | mapping statique par mots-clés | remplacer par la lib `mitreattack-python` pour un mapping complet au framework STIX |
-| IA | pas encore ajoutée | c'est le prochain gros morceau : un LLM qui lit les résultats agrégés du pipeline et rédige la section "analyse" du rapport automatiquement |
+- **Orchestrator**: `app.py` (Streamlit) — chains the stages, keeps state in
+  session, triggers report generation.
+- **Independent modules**: each stage is isolated in `modules/<stage>.py`
+  with a clear entry function — replacing sample data with the real tool
+  only ever touches that one file, never the rest of the pipeline. That's
+  the point: the architectural core is stable, tool integration is
+  incremental work behind an interface that's already fixed.
+- **Resilient design**: each module tries the real tool first (subprocess
+  or direct parsing), and falls back to sample data otherwise — so the
+  pipeline never breaks during a demo.
 
+## Status
+
+| Stage | State |
+| --- | --- |
+| Netscan | pure-Python socket scan (works everywhere); real process list via Volatility3 pstree.json |
+| Extraction | wired to real Volatility3 output when a memory image / dump files are present |
+| Injection | real Volatility3 malfind results integrated (`windows.malware.malfind.Malfind`) |
+| Malware triage | heuristic scoring (entropy, magic bytes, suspicious API strings) — real when given a file path |
+| MemMal-D2024 / CICIDS2017 | trained classifiers, wired into the pipeline |
+| Registry | module added (`regipy`) — real when given an exported hive, sample data otherwise |
+| Ghidra | sample decompiled snippet — real integration requires `GHIDRA_HOME` + `analyzeHeadless`, not completed |
+| MITRE ATT&CK | static keyword mapping |
+| AI analysis | LLM (Claude) reads the aggregated pipeline results and writes the report's analysis section |
+| Autopsy | not integrated |
+
+See `REPORT_NOTES.md` for the full methodology and scope notes.

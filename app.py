@@ -1,4 +1,4 @@
-from theme import inject_theme
+from theme import inject_theme, real_marker, mock_marker, status_strip, metric_row
 import streamlit as st
 import json
 import os
@@ -7,7 +7,6 @@ from modules.network_score import score_network_flow
 from modules.netscan import run_netscan
 from modules.extraction import run_extraction
 from modules.injection import run_injection_scan
-from modules.injection import run_injection_scan
 from modules.malware import run_malware_analysis
 from modules.ghidra_analysis import run_ghidra_analysis
 from modules.mitre_mapping import map_to_attack
@@ -15,137 +14,142 @@ from modules.report import build_markdown_report, save_markdown, save_pdf
 from modules.volatility_parser import load_pstree, load_netscan, summarize_pstree, load_malfind
 from modules.ai_analysis import generate_report_analysis
 from modules.registry import load_registry_summary
-st.set_page_config(page_title="Forensic AI Platform", layout="wide")
+
+st.set_page_config(page_title="REN 人", layout="wide")
 inject_theme()
+
 if "results" not in st.session_state:
     st.session_state.results = {}
 
-st.title("foren")
-st.caption("platforme dinvestigation")
+st.title("REN 人")
+st.caption("AI-assisted forensic investigation platform")
 
-st.sidebar.header("Configuration de la cible")
-target_ip = st.sidebar.text_input("IP cible (netscan)", "127.0.0.1")
-memory_image = st.sidebar.text_input("Chemin image mémoire (optionnel)", "")
-binary_path = st.sidebar.text_input("Chemin binaire suspect pour Ghidra (optionnel)", "")
+status_strip([
+    ("Volatility3", bool(load_pstree("pstree.json"))),
+    ("Malfind", bool(load_malfind("malfind.json"))),
+    ("Ghidra", False),
+    ("Registry", False),
+    ("LLM (Claude)", bool(os.environ.get("ANTHROPIC_API_KEY"))),
+])
 
-st.sidebar.markdown("---")
-st.sidebar.info(
-    "Les étapes sans outil live installé retombent automatiquement sur des "
-    "données d'exemple réalistes — le pipeline reste démontrable de bout en "
-    "bout quel que soit l'environnement."
-)
+st.sidebar.header("Target configuration")
+target_ip = st.sidebar.text_input("Target IP (netscan)", "127.0.0.1")
+memory_image = st.sidebar.text_input("Memory image path (optional)", "")
+binary_path = st.sidebar.text_input("Suspect binary path (optional)", "")
+hive_path = st.sidebar.text_input("Registry hive path (optional)", "")
 
-stages = ["1. Netscan", "2. Extraction", "3. Injection", "4. Malware Detection", "5. Ghidra",
-          "6. MITRE ATT&CK", "7. Registre", "8. Rapport"]
-tabs = st.tabs(stages)
+tabs = st.tabs(["Collection", "Detection", "Analysis", "Report"])
 
-# ---- Stage 1: Netscan ----
+# ---------------------------------------------------------------- Collection
 with tabs[0]:
-    st.subheader("Netscan")
-    if st.button("Lancer le scan réseau"):
-        with st.spinner("Scan en cours..."):
+    st.subheader("Network scan")
+    if st.button("Run network scan"):
+        with st.spinner("Scanning..."):
             st.session_state.results["netscan"] = run_netscan(target_ip)
     if "netscan" in st.session_state.results:
+        mock_marker("sample data") if not target_ip or target_ip == "127.0.0.1" else real_marker("live result")
         st.json(st.session_state.results["netscan"])
-    st.markdown("---")
-    st.subheader("Score IA — CICIDS2017 (flux réseau)")
-    if st.button("Lancer le scoring réseau IA"):
-        with st.spinner("Analyse en cours..."):
-            st.session_state.results["network_ai"] = score_network_flow()
-    if "network_ai" in st.session_state.results:
-        st.json(st.session_state.results["network_ai"])
-    st.markdown("---")
-    st.subheader("capture Volatility")
+
+    st.divider()
+    st.subheader("Memory extraction")
+    if st.button("Run extraction"):
+        with st.spinner("Extracting..."):
+            st.session_state.results["extraction"] = run_extraction(memory_image or None)
+    if "extraction" in st.session_state.results:
+        real_marker("live result") if memory_image else mock_marker("sample data")
+        st.json(st.session_state.results["extraction"])
+
+    st.divider()
+    st.subheader("Volatility3 capture")
     real_procs = load_pstree("pstree.json")
     real_conns = load_netscan("netscan.json")
     if real_procs:
-        st.success(f"{len(real_procs)} processus réels chargés depuis pstree.json")
+        real_marker(f"{len(real_procs)} real processes loaded")
         st.json(summarize_pstree(real_procs))
     if not real_conns:
-        st.info("netscan.json: aucune connexion active au moment de la capture.")
-# ---- Stage 2: Extraction ----
-with tabs[1]:
-    st.subheader("Extraction mémoire")
-    if st.button("Lancer l'extraction"):
-        with st.spinner("Extraction en cours..."):
-            st.session_state.results["extraction"] = run_extraction(memory_image or None)
-    if "extraction" in st.session_state.results:
-        st.json(st.session_state.results["extraction"])
+        mock_marker("no active connections at capture time")
 
-# ---- Stage 3: Injection ----
-with tabs[2]:
-    st.subheader("Détection d'injection de code")
-    if st.button("Lancer la détection d'injection"):
-        with st.spinner("Analyse en cours..."):
+# ----------------------------------------------------------------- Detection
+with tabs[1]:
+    st.subheader("Code injection detection")
+    if st.button("Run injection scan"):
+        with st.spinner("Scanning..."):
             st.session_state.results["injection"] = run_injection_scan(memory_image or None)
     if "injection" in st.session_state.results:
+        real_marker("live result") if memory_image else mock_marker("sample data")
         st.json(st.session_state.results["injection"])
 
-    st.markdown("---")
-    st.subheader("Résultats réels — Volatility3 malfind")
     real_malfind = load_malfind("malfind.json")
     if real_malfind:
-        st.success(f"{len(real_malfind)} zone(s) suspecte(s) détectée(s) (malfind réel)")
+        real_marker(f"{len(real_malfind)} suspicious region(s) — Volatility3 malfind")
         st.session_state.results["malfind_real"] = real_malfind
         st.json(real_malfind[:10])
-    else:
-        st.info("malfind.json: aucune donnée réelle trouvée.")
 
-# ---- Stage 4: Malware Detection ----
-with tabs[3]:
-    st.subheader("Analyse malware — scoring + IA")
-    if st.button("Lancer le scoring malware"):
-        with st.spinner("Analyse en cours..."):
+    st.divider()
+    st.subheader("Malware triage")
+    if st.button("Run malware scoring"):
+        with st.spinner("Analyzing..."):
             st.session_state.results["malware"] = run_malware_analysis(binary_path or None)
     if "malware" in st.session_state.results:
-        result = st.session_state.results["malware"]
-        st.json(result)
-        if result.get("mlAvailable"):
-            st.success(f"Modèle EMBER actif — probabilité malveillante : {result['ml']['maliciousProbability']}")
-        else:
-            st.info("Modèle EMBER non chargé (EMBER_MODEL_PATH non défini) — score heuristique utilisé seul.")
+        real_marker("live result") if binary_path else mock_marker("sample data")
+        st.json(st.session_state.results["malware"])
 
-    st.markdown("---")
-    st.subheader("Score IA — MemMal-D2024 (features mémoire)")
-    if st.button("Lancer le scoring MemMal"):
-        with st.spinner("Analyse en cours..."):
+    st.divider()
+    st.subheader("MemMal-D2024 — memory feature classifier")
+    if st.button("Run MemMal scoring"):
+        with st.spinner("Analyzing..."):
             st.session_state.results["memmal"] = score_memory_features()
     if "memmal" in st.session_state.results:
         st.json(st.session_state.results["memmal"])
-# ---- Stage 5: Ghidra ----
-with tabs[4]:
-    st.subheader("Analyse Ghidra")
-    if st.button("Lancer l'analyse Ghidra"):
-        with st.spinner("Décompilation en cours..."):
+
+    st.divider()
+    st.subheader("CICIDS2017 — network flow classifier")
+    if st.button("Run network scoring"):
+        with st.spinner("Analyzing..."):
+            st.session_state.results["network_ai"] = score_network_flow()
+    if "network_ai" in st.session_state.results:
+        st.json(st.session_state.results["network_ai"])
+
+# ------------------------------------------------------------------ Analysis
+with tabs[2]:
+    st.subheader("Ghidra decompilation")
+    if st.button("Run Ghidra analysis"):
+        with st.spinner("Decompiling..."):
             st.session_state.results["ghidra"] = run_ghidra_analysis(binary_path or None)
     if "ghidra" in st.session_state.results:
+        real_marker("live result") if binary_path else mock_marker("sample data")
         st.json(st.session_state.results["ghidra"])
 
-# ---- Stage 6: MITRE ----
-with tabs[5]:
-    st.subheader("Cartographie MITRE ATT&CK")
-    if st.button("Générer la cartographie ATT&CK"):
+    st.divider()
+    st.subheader("MITRE ATT&CK mapping")
+    if st.button("Generate ATT&CK mapping"):
         blob = json.dumps(st.session_state.results, default=str)
         st.session_state.results["mitre"] = map_to_attack(blob)
     if "mitre" in st.session_state.results:
         for tech in st.session_state.results["mitre"]:
-            st.markdown(f"**{tech['technique_id']} — {tech['technique_name']}**  \n"
-                        f"Tactique : {tech['tactic']}")
-# ---- Stage 7: Registre ----
-with tabs[6]:
-    st.subheader("Analyse du registre")
-    hive_path = st.text_input("Chemin vers une ruche exportée (optionnel)", "")
-    if st.button("Charger le registre"):
-        with st.spinner("Lecture en cours..."):
+            st.markdown(f"**{tech['technique_id']} — {tech['technique_name']}**  \nTactic: {tech['tactic']}")
+
+    st.divider()
+    st.subheader("Registry")
+    if st.button("Load registry"):
+        with st.spinner("Reading..."):
             st.session_state.results["registry"] = load_registry_summary(hive_path or None)
     if "registry" in st.session_state.results:
+        real_marker("live result") if hive_path else mock_marker("sample data")
         st.json(st.session_state.results["registry"])
-# ---- Stage 8: Rapport ----
-with tabs[7]:
-    st.subheader("Rapport final")
 
-    if st.button("Générer l'analyse IA"):
-        with st.spinner("L'IA rédige l'analyse..."):
+# -------------------------------------------------------------------- Report
+with tabs[3]:
+    st.subheader("Final report")
+
+    metric_row([
+        (str(len(load_pstree("pstree.json"))), "processes"),
+        (str(len(load_malfind("malfind.json"))), "injection sites"),
+        (str(len(st.session_state.results.get("mitre", []))), "ATT&CK techniques"),
+    ])
+
+    if st.button("Generate AI analysis"):
+        with st.spinner("Generating analysis..."):
             context = {
                 "pstree_summary": summarize_pstree(load_pstree("pstree.json")),
                 "malfind": load_malfind("malfind.json"),
@@ -156,9 +160,19 @@ with tabs[7]:
             }
             st.session_state.results["ai_analysis"] = generate_report_analysis(context)
     if "ai_analysis" in st.session_state.results:
-        st.markdown("**Analyse générée par l'IA :**")
+        st.markdown("**AI-generated analysis:**")
         st.write(st.session_state.results["ai_analysis"])
 
-    if st.button("Générer le rapport"):
+    st.divider()
+    if st.button("Generate report"):
         md = build_markdown_report(st.session_state.results)
-        ...
+        os.makedirs("output", exist_ok=True)
+        md_path = save_markdown(md, "output/report.md")
+        pdf_path = save_pdf(md, "output/report.pdf")
+        st.session_state.results["report_md"] = md
+        st.success(f"Report generated: {md_path}" + (f" and {pdf_path}" if pdf_path else ""))
+    if "report_md" in st.session_state.results:
+        st.markdown(st.session_state.results["report_md"])
+        st.download_button("Download report (Markdown)",
+                            st.session_state.results["report_md"],
+                            file_name="rapport.md")

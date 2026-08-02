@@ -1,17 +1,4 @@
-"""
-theme.py
 
-Injects the approved visual direction (restrained dark theme, Space Grotesk
-headers, JetBrains Mono for technical data) into the Streamlit app.
-
-Usage in app.py:
-    from theme import inject_theme
-    inject_theme()
-    # ... rest of app.py unchanged
-
-This only affects appearance — it doesn't touch any pipeline logic, session
-state, or button behavior. Safe to drop in without breaking existing tabs.
-"""
 
 import streamlit as st
 
@@ -32,18 +19,33 @@ CSS = """
     --cw-red: #B9564F;
 }
 
-/* Headings use the display face; body text stays readable */
+.stApp {
+    background-image:
+        linear-gradient(var(--cw-border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--cw-border) 1px, transparent 1px);
+    background-size: 42px 42px;
+    background-position: center;
+    background-color: var(--cw-bg);
+}
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at top, rgba(16,18,20,0) 0%, var(--cw-bg) 75%);
+    pointer-events: none;
+    z-index: 0;
+}
+
 h1, h2, h3 {
     font-family: 'Space Grotesk', sans-serif !important;
     font-weight: 600 !important;
+    letter-spacing: -0.01em;
 }
 
-/* Technical/data output (json, code) always in mono */
 .stJson, code, pre {
     font-family: 'JetBrains Mono', monospace !important;
 }
 
-/* Quiet the default Streamlit button — no bright blue, no heavy shadow */
 .stButton > button {
     background-color: transparent;
     color: var(--cw-amber);
@@ -53,45 +55,50 @@ h1, h2, h3 {
     font-size: 12.5px;
     font-weight: 500;
     padding: 0.4rem 1rem;
+    transition: border-color 0.15s ease;
 }
 .stButton > button:hover {
     border-color: var(--cw-amber);
     color: var(--cw-amber);
 }
 
-/* Sidebar: quiet, no loud dividers */
 section[data-testid="stSidebar"] {
     border-right: 1px solid var(--cw-border);
+    background-color: var(--cw-panel);
 }
 
-/* Tabs: understated, single subtle underline on the active tab */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 28px;
+    border-bottom: 1px solid var(--cw-border);
+}
 .stTabs [data-baseweb="tab"] {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 13px;
     color: var(--cw-muted);
+    padding-bottom: 10px;
 }
 .stTabs [aria-selected="true"] {
     color: var(--cw-text) !important;
     border-bottom-color: var(--cw-amber) !important;
 }
 
-/* Caption / eyebrow text */
 .cw-eyebrow {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: var(--cw-muted-2);
     letter-spacing: 0.5px;
+    text-transform: uppercase;
     margin-bottom: 4px;
 }
 
-/* Single "this is a real result" marker — used sparingly, not on every element */
-.cw-real-marker {
+.cw-real-marker, .cw-mock-marker {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11.5px;
     color: var(--cw-muted);
+    margin-bottom: 6px;
 }
 .cw-real-marker::before {
     content: '';
@@ -99,14 +106,7 @@ section[data-testid="stSidebar"] {
     height: 6px;
     border-radius: 50%;
     background: var(--cw-green);
-}
-.cw-mock-marker {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px;
-    color: var(--cw-muted);
+    box-shadow: 0 0 6px var(--cw-green);
 }
 .cw-mock-marker::before {
     content: '';
@@ -116,67 +116,109 @@ section[data-testid="stSidebar"] {
     background: var(--cw-muted-2);
 }
 
-/* A single finding row — plain, separated by a hairline, no card/border noise */
+/* Top status strip — tool availability, one line, no clutter */
+.cw-status-strip {
+    display: flex;
+    gap: 22px;
+    padding: 10px 0 18px 0;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--cw-border);
+    flex-wrap: wrap;
+}
+.cw-status-item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--cw-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.cw-status-item::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+}
+.cw-status-item.on::before { background: var(--cw-green); box-shadow: 0 0 5px var(--cw-green); }
+.cw-status-item.off::before { background: var(--cw-muted-2); }
+
+/* Metric cards — used at the top of the Report tab */
+.cw-metric-row {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+.cw-metric {
+    flex: 1;
+    background: var(--cw-panel);
+    border: 1px solid var(--cw-border);
+    border-radius: 6px;
+    padding: 14px 16px;
+}
+.cw-metric-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--cw-text);
+}
+.cw-metric-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--cw-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 2px;
+}
+
 .cw-finding {
     padding: 12px 0;
     border-top: 1px solid var(--cw-border);
 }
-.cw-finding:last-child {
-    border-bottom: 1px solid var(--cw-border);
-}
-.cw-finding-top {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 4px;
-}
-.cw-finding-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--cw-text);
-}
-.cw-finding-sev {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    color: var(--cw-red);
-}
-.cw-finding-sev.warn {
-    color: var(--cw-amber);
-}
-.cw-finding-detail {
-    font-size: 12px;
-    color: var(--cw-muted);
-    line-height: 1.55;
-}
-.cw-finding-conf {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--cw-muted-2);
-    margin-top: 6px;
-}
+.cw-finding:last-child { border-bottom: 1px solid var(--cw-border); }
+.cw-finding-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.cw-finding-label { font-size: 13px; font-weight: 500; color: var(--cw-text); }
+.cw-finding-sev { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--cw-red); }
+.cw-finding-sev.warn { color: var(--cw-amber); }
+.cw-finding-detail { font-size: 12px; color: var(--cw-muted); line-height: 1.55; }
+.cw-finding-conf { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--cw-muted-2); margin-top: 6px; }
 </style>
 """
 
 
 def inject_theme():
-    """Call once near the top of app.py, right after st.set_page_config()."""
     st.markdown(CSS, unsafe_allow_html=True)
 
 
-def real_marker(text: str = "résultat réel"):
-    """Small inline marker for genuinely real (non-mock) results."""
+def real_marker(text: str = "live result"):
     st.markdown(f'<span class="cw-real-marker">{text}</span>', unsafe_allow_html=True)
 
 
-def mock_marker(text: str = "résultat simulé"):
-    """Small inline marker for mock/fallback results."""
+def mock_marker(text: str = "sample data"):
     st.markdown(f'<span class="cw-mock-marker">{text}</span>', unsafe_allow_html=True)
 
 
+def status_strip(items: list[tuple[str, bool]]):
+    """items: list of (label, is_live) e.g. [("Volatility3", True), ("Ghidra", False)]"""
+    spans = "".join(
+        f'<div class="cw-status-item {"on" if live else "off"}">{label}</div>'
+        for label, live in items
+    )
+    st.markdown(f'<div class="cw-status-strip">{spans}</div>', unsafe_allow_html=True)
+
+
+def metric_row(metrics: list[tuple[str, str]]):
+    """metrics: list of (value, label) e.g. [("14", "processes"), ("3", "findings")]"""
+    cards = "".join(
+        f'<div class="cw-metric"><div class="cw-metric-value">{value}</div>'
+        f'<div class="cw-metric-label">{label}</div></div>'
+        for value, label in metrics
+    )
+    st.markdown(f'<div class="cw-metric-row">{cards}</div>', unsafe_allow_html=True)
+
+
 def finding(label: str, severity: str, detail: str, confidence: int = None, warn: bool = False):
-    """Renders one finding as a plain row (no card/border clutter), matching
-    the approved v2 mockup — used instead of raw st.json for key results."""
     sev_class = "cw-finding-sev warn" if warn else "cw-finding-sev"
-    conf_html = f'<div class="cw-finding-conf">confiance {confidence}%</div>' if confidence is not None else ""
+    conf_html = f'<div class="cw-finding-conf">confidence {confidence}%</div>' if confidence is not None else ""
     st.markdown(f"""
     <div class="cw-finding">
         <div class="cw-finding-top">

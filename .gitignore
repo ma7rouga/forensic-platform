@@ -1,7 +1,6 @@
 venv/
 __pycache__/
 *.pyc
+*.raw
 output/
-.streamlit/enterprise-attack.json
 data/
-venv/

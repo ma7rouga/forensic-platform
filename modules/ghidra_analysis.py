@@ -1,11 +1,4 @@
-"""
-Stage 4: GHIDRA
-Runs Ghidra headless analysis against a suspicious binary pulled out
-during extraction/injection stages, to disassemble/decompile it and
-flag suspicious API calls. Falls back to a canned decompiled snippet
-if GHIDRA_HOME isn't configured (Ghidra install is heavy — fine to
-wire in once the skeleton is proven).
-"""
+
 import subprocess
 import os
 import tempfile
